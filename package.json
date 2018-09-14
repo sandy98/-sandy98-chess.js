@@ -1,0 +1,12 @@
+{
+  "name": "chess-plus",
+  "version": "0.1.0",
+  "author": "Domingo E. Savoretti",
+  "main": "dist/chess.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "scripts/build.sh",
+    "prepublish": "scripts/build.sh",
+    "clean": "scripts/clean.sh"
+  }
+}
