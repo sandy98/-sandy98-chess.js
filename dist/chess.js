@@ -747,6 +747,18 @@ var __extends = this && this.__extends || function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 }();
+var __assign = this && this.__assign || function () {
+    __assign = Object.assign || function (t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) {
+                if (Object.prototype.hasOwnProperty.call(s, p)) t[p] = s[p];
+            }
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 exports.__esModule = true;
 var game_1 = require("./game");
 var Chess = /** @class */function (_super) {
@@ -832,7 +844,7 @@ var Chess = /** @class */function (_super) {
     };
     Chess.innerPath = function (sq1, sq2) {
         var p = Chess.path(sq1, sq2);
-        return p.slice(0, p.length - 1);
+        return p.slice(1, p.length - 1);
     };
     Chess.isClearPath = function (sq1, sq2, fen) {
         var inner = Chess.innerPath(sq1, sq2);
@@ -890,11 +902,42 @@ var Chess = /** @class */function (_super) {
                 return false;
         }
     };
+    Chess.army = function (color, fen) {
+        var army_string = color === 'b' ? 'pnbrqk' : 'PNBRQK';
+        var position = game_1.Game.fen2obj(fen).pos;
+        var indexes = position.split('').map(function (_, i) {
+            return i;
+        });
+        return indexes.filter(function (i) {
+            return army_string.includes(position[i]);
+        });
+    };
+    Chess.attacksOnSquare = function (color, fen, square) {
+        var position = game_1.Game.fen2obj(fen).pos;
+        var attackers = Chess.army(color, fen);
+        return attackers.filter(function (i) {
+            return Chess.canAttack(i, square, fen);
+        });
+    };
     Chess.canReach = function (from, to, fen) {
         return Chess.inScope(from, to, fen) && Chess.isClearPath(from, to, fen);
     };
     Chess.canAttack = function (from, to, fen) {
         return Chess.inScope(from, to, fen, true) && Chess.isClearPath(from, to, fen);
+    };
+    Chess.kingSquare = function (color, fen) {
+        var king = color === 'w' ? 'K' : 'k';
+        var fenObj = game_1.Game.fen2obj(fen);
+        for (var i = 0; i < 64; i++) {
+            if (fenObj.pos[i] === king) return i;
+        }
+        return -1;
+    };
+    Chess.checks = function (color, fen) {
+        var jaques = 0;
+        var attackers = color === 'w' ? 'b' : 'w';
+        var kingSq = Chess.kingSquare(color, fen);
+        return Chess.attacksOnSquare(attackers, fen, kingSq).length;
     };
     Chess.prototype.san2MoveInfo = function (san) {
         //Must override
@@ -906,7 +949,7 @@ var Chess = /** @class */function (_super) {
         if (n === void 0) {
             n = this.getMaxPos();
         }
-        var parentResult = _super.prototype.canMove.call(this, moveInfo);
+        var parentResult = _super.prototype.canMove.call(this, moveInfo, n);
         if (!parentResult) return false;
         //super.canMove() tests: 
         // 1) that the original figure is a valid one
@@ -915,7 +958,152 @@ var Chess = /** @class */function (_super) {
         var result = Chess.canReach(moveInfo.from, moveInfo.to, this.fens[n]);
         if (!result) return false;
         //Todo: consider constraints for pawn actions and castling before returning true
+        //King castling constraints
+        if (moveInfo.figureFrom === 'K' && moveInfo.from === 4 && moveInfo.to === 6) {
+            if (!this.getCastling(n).includes('K')) return false;
+            if (moveInfo.figureTo !== '0') return false;
+            if (Chess.attacksOnSquare('b', this.fens[n], 4).length) return false;
+            if (Chess.attacksOnSquare('b', this.fens[n], 5).length) return false;
+        }
+        if (moveInfo.figureFrom === 'K' && moveInfo.from === 4 && moveInfo.to === 2) {
+            if (!this.getCastling(n).includes('Q')) return false;
+            if (moveInfo.figureTo !== '0') return false;
+            if (Chess.attacksOnSquare('b', this.fens[n], 4).length) return false;
+            if (Chess.attacksOnSquare('b', this.fens[n], 3).length) return false;
+        }
+        if (moveInfo.figureFrom === 'k' && moveInfo.from === 60 && moveInfo.to === 62) {
+            if (!this.getCastling(n).includes('k')) return false;
+            if (moveInfo.figureTo !== '0') return false;
+            if (Chess.attacksOnSquare('w', this.fens[n], 60).length) return false;
+            if (Chess.attacksOnSquare('w', this.fens[n], 61).length) return false;
+        }
+        if (moveInfo.figureFrom === 'k' && moveInfo.from === 60 && moveInfo.to === 58) {
+            if (!this.getCastling(n).includes('q')) return false;
+            if (moveInfo.figureTo !== '0') return false;
+            if (Chess.attacksOnSquare('w', this.fens[n], 60).length) return false;
+            if (Chess.attacksOnSquare('w', this.fens[n], 59).length) return false;
+        }
+        //Consider pawn move constraints
+        var isFoe = moveInfo.to === game_1.Game.san2sq(this.getEnPassant(n)) || game_1.Game.isFoe(moveInfo.figureFrom, moveInfo.figureTo);
+        if (moveInfo.figureFrom === 'P') {
+            if (Chess.isWPawnMove(moveInfo.from, moveInfo.to) && moveInfo.figureTo !== '0') return false;
+            if (Chess.isWPawnAttack(moveInfo.from, moveInfo.to) && !isFoe) return false;
+        }
+        if (moveInfo.figureFrom === 'p') {
+            if (Chess.isBPawnMove(moveInfo.from, moveInfo.to) && moveInfo.figureTo !== '0') return false;
+            if (Chess.isBPawnAttack(moveInfo.from, moveInfo.to) && !isFoe) return false;
+        }
         return true;
+    };
+    Chess.prototype.tryMove = function () {
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+        }
+        var moveInfo;
+        var from;
+        var to;
+        var promotion;
+        if (args.length === 0) {
+            return null;
+        } else if (args.length === 1) {
+            if (typeof args[0] === 'string') {
+                moveInfo = this.san2MoveInfo(args[0]);
+                if (!moveInfo) return null;
+                from = moveInfo.from;
+                to = moveInfo.to;
+                promotion = moveInfo.promotion;
+            } else {
+                return null;
+            }
+        } else {
+            from = args[0], to = args[1], promotion = args[2];
+            if (typeof from === 'string') {
+                from = game_1.Game.san2sq(from);
+            }
+            if (typeof to === 'string') {
+                to = game_1.Game.san2sq(to);
+            }
+        }
+        var fObj = game_1.Game.fen2obj(this.fens[this.getMaxPos()]);
+        var pos = fObj.pos.split('');
+        var turn = fObj.turn;
+        var figFrom = pos[from];
+        var figInTo = pos[to];
+        var figTo = promotion ? promotion : figFrom;
+        moveInfo = { enPassant: false };
+        moveInfo.turn = turn;
+        moveInfo.from = from;
+        moveInfo.to = to;
+        moveInfo.figureFrom = figFrom;
+        moveInfo.figureTo = figInTo;
+        moveInfo.promotion = promotion;
+        moveInfo.capture = figInTo !== '0' || this.isEnPassant(from, to) && to === game_1.Game.san2sq(fObj.enPassant);
+        moveInfo.san = this.moveInfo2san(moveInfo);
+        moveInfo.fullMoveNumber = fObj.fullMoveNumber;
+        moveInfo.castling = this.isShortCastling(from, to) || this.isLongCastling(from, to);
+        var bCan = this.canMove(moveInfo);
+        if (!bCan) return null;
+        pos[from] = '0';
+        pos[to] = figTo;
+        if (figFrom === 'K' && from === 4 && to === 6) {
+            pos[7] = '0';
+            pos[5] = 'R';
+        }
+        if (figFrom === 'K' && from === 4 && to === 2) {
+            pos[0] = '0';
+            pos[3] = 'R';
+        }
+        if (figFrom === 'k' && from === 60 && to === 62) {
+            pos[63] = '0';
+            pos[61] = 'r';
+        }
+        if (figFrom === 'k' && from === 60 && to === 58) {
+            pos[56] = '0';
+            pos[59] = 'R';
+        }
+        if (this.isEnPassant(from, to)) {
+            //console.log("En passant move from " + from + " to " + to)
+            if (to !== game_1.Game.san2sq(fObj.enPassant)) {
+                //console.log(`Destination is ${to} and en-passant is ${Game.san2sq(fObj.enPassant)}`)
+            } else {
+                var sunk = game_1.Game.san2sq(fObj.enPassant) + 8 * (figFrom === 'P' ? -1 : 1);
+                //console.log("En passant sunk pawn at " + sunk) 
+                pos[sunk] = '0';
+                moveInfo.enPassant = true;
+            }
+        }
+        switch (from) {
+            case 4:
+                fObj.castling = fObj.castling.replace(/[KQ]/g, '');
+                break;
+            case 60:
+                fObj.castling = fObj.castling.replace(/[kq]/g, '');
+                break;
+            case 0:
+                fObj.castling = fObj.castling.replace('Q', '');
+                break;
+            case 7:
+                fObj.castling = fObj.castling.replace('K', '');
+                break;
+            case 56:
+                fObj.castling = fObj.castling.replace('q', '');
+                break;
+            case 63:
+                fObj.castling = fObj.castling.replace('k', '');
+                break;
+            default:
+        }
+        fObj.castling = fObj.castling === '' ? '-' : fObj.castling;
+        if (this.isTwoSteps(from, to)) {
+            fObj.enPassant = game_1.Game.sq2san(figFrom === 'P' ? to - 8 : to + 8);
+        } else {
+            fObj.enPassant = '-';
+        }
+        fObj.halfMoveClock = !!figFrom.match(/[Pp]/) || moveInfo.capture ? 0 : ++fObj.halfMoveClock;
+        fObj.fullMoveNumber = turn === 'w' ? fObj.fullMoveNumber : ++fObj.fullMoveNumber;
+        fObj = __assign({}, fObj, { pos: pos.join(''), fenPos: game_1.Game.compressFenPos(pos.join('')), turn: turn === 'w' ? 'b' : 'w' });
+        return { fen: game_1.Game.obj2fen(fObj), moveInfo: moveInfo };
     };
     Chess.prototype.game_over = function () {
         //Must override
@@ -925,9 +1113,8 @@ var Chess = /** @class */function (_super) {
         if (index === void 0) {
             index = this.getMaxPos();
         }
-        //Must override
         if (index < 0 || index > this.getMaxPos()) return false;
-        return false;
+        return Chess.checks(this.getTurn(index), this.fen(index)) > 0;
     };
     Chess.prototype.in_checkmate = function (index) {
         if (index === void 0) {
@@ -935,7 +1122,7 @@ var Chess = /** @class */function (_super) {
         }
         //Must override
         if (index < 0 || index > this.getMaxPos()) return false;
-        return false;
+        return this.in_check(index) && this.moves(null, index).length === 0;
     };
     Chess.prototype.in_draw = function (index) {
         if (index === void 0) {
@@ -951,7 +1138,7 @@ var Chess = /** @class */function (_super) {
         }
         //Must override
         if (index < 0 || index > this.getMaxPos()) return false;
-        return false;
+        return !this.in_check(index) && this.moves(null, index).length === 0;
     };
     Chess.prototype.insufficient_material = function (_) {
         if (_ === void 0) {
@@ -965,21 +1152,74 @@ var Chess = /** @class */function (_super) {
         //Must override
         return false;
     };
-    Chess.prototype.moves = function (options) {
+    Chess.prototype.move = function () {
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+        }
+        var tuple = this.tryMove.apply(this, args);
+        if (tuple === null) return false;
+        if (!this.validate_fen(tuple.fen)) return false;
+        this.fens = this.fens.concat([tuple.fen]);
+        this.sans = this.sans.concat([tuple.moveInfo]);
+        return true;
+    };
+    Chess.prototype.moves = function (options, index) {
         if (options === void 0) {
             options = null;
         }
+        if (index === void 0) {
+            index = this.getMaxPos();
+        }
         //Must override
-        if (!!options) {
-            return [];
+        var result = [];
+        var army = this.getTurn(index) === 'b' ? 'pnbrqk' : 'PNBRQK';
+        var fen = this.fens[index];
+        var position = game_1.Game.fen2obj(fen).pos;
+        for (var from = 0; from < 64; from++) {
+            if (army.includes(position[from])) {
+                var _loop_1 = function _loop_1(to) {
+                    var promotion = position[from] === 'P' && game_1.Game.row(to) === 7 ? 'Q' : position[from] === 'p' && game_1.Game.row(to) === 0 ? 'q' : null;
+                    var tuple = this_1.tryMove(from, to, promotion);
+                    if (tuple && this_1.validate_fen(tuple.fen)) {
+                        result = result.concat([tuple.moveInfo]);
+                        if (promotion) {
+                            var others = promotion === 'Q' ? ['N', 'R', 'B'] : ['n', 'r', 'b'];
+                            others.forEach(function (figure) {
+                                result = result.concat([__assign({}, tuple.moveInfo, { promotion: figure, san: tuple.moveInfo.san.replace(promotion, figure) })]);
+                            });
+                        }
+                    }
+                };
+                var this_1 = this;
+                for (var to = 0; to < 64; to++) {
+                    _loop_1(to);
+                }
+            }
+        }
+        if (options && options['square']) {
+            var from_1 = typeof options['square'] === 'string' ? game_1.Game.san2sq(options['square']) : options['square'];
+            result = result.filter(function (mi) {
+                return mi.from === from_1;
+            });
+        }
+        if (options && options['verbose']) {
+            return result;
         } else {
-            return [];
+            return result.map(function (mi) {
+                return mi.san;
+            });
         }
     };
     Chess.prototype.validate_fen = function (fen) {
-        //Must override
-        if (fen.length) return true;
-        return false;
+        //Check length of the string
+        if (!fen.length) return false;
+        //Check is not illegal according to checks
+        var turn = game_1.Game.fen2obj(fen).turn;
+        var wChecks = Chess.checks('w', fen);
+        var bChecks = Chess.checks('b', fen);
+        if (turn === 'w' && bChecks > 0 || turn === 'b' && wChecks > 0) return false;
+        return true;
     };
     return Chess;
 }(game_1.Game);
