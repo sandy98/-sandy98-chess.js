@@ -137,6 +137,16 @@ var Game = /** @class */function () {
         };
         this.reset(fen);
     }
+    Game.outOfBounds = function () {
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+        }
+        for (var n = 0; n < args.length; n++) {
+            if (args[n] < 0 || args[n] > 63) return true;
+        }
+        return false;
+    };
     Game.capitalize = function (word) {
         return "" + word[0].toUpperCase() + word.split('').slice(1).join('').toLowerCase();
     };
@@ -154,6 +164,22 @@ var Game = /** @class */function () {
     };
     Game.col = function (sq) {
         return sq % 8;
+    };
+    Game.col2string = function (r) {
+        return r < 8 && r >= 0 ? String.fromCharCode(r + 97) : '';
+    };
+    Game.string2col = function (c) {
+        return !!c.match(/^[a-h]$/) ? c.charCodeAt(0) - 97 : -1;
+    };
+    Game.row2string = function (r) {
+        return r < 8 && r >= 0 ? (r + 1).toString(10) : '';
+    };
+    Game.string2row = function (c) {
+        return !!c.match(/^[1-8]$/) ? c.charCodeAt(0) - 49 : -1;
+    };
+    Game.rowcol2sq = function (row, col) {
+        if (row < 0 || row > 7 || col < 0 || col > 7) return -1;
+        return row * 8 + col;
     };
     Game.isEven = function (sq) {
         return sq % 2 === 0;
@@ -252,8 +278,12 @@ var Game = /** @class */function () {
         if (fen === void 0) {
             fen = Game.defaultFen;
         }
+        if (!this.validate_fen(fen)) {
+            throw new Error('Invalid FEN');
+        }
         this.fens = [fen];
         this.sans = [{}];
+        this.tags.Result = Game.results.unterminated;
     };
     Game.prototype.getMaxPos = function () {
         return this.fens.length - 1;
@@ -348,16 +378,18 @@ var Game = /** @class */function () {
     Game.prototype.moveInfo2san = function (info) {
         if (this.isShortCastling(info.from, info.to)) return 'O-O';
         if (this.isLongCastling(info.from, info.to)) return 'O-O-O';
+        //console.log(`In moveInfo2san, figureFrom is: ${info.figureFrom}`)
         var figure = !info.figureFrom.match(/[Pp]/) ? info.figureFrom.toUpperCase() : info.capture ? Game.sq2san(info.from)[0] : '';
+        var infoOrigin = info.infoOrigin ? info.infoOrigin : '';
         var capture = info.capture ? 'x' : '';
         var dest = Game.sq2san(info.to);
         var promotion = info.promotion ? "=" + info.promotion.toUpperCase() : '';
-        var checkInfo = info.checkmate ? '++' : info.check ? '+' : '';
-        return "" + figure + capture + dest + promotion + checkInfo;
+        var checkInfo = info.checkmate ? '#' : info.check ? '+' : '';
+        return "" + figure + infoOrigin + capture + dest + promotion + checkInfo;
     };
-    Game.prototype.san2MoveInfo = function (san, n) {
-        if (n === void 0) {
-            n = this.getMaxPos();
+    Game.prototype.san2MoveInfo = function (san, fen) {
+        if (fen === void 0) {
+            fen = this.fen();
         }
         //Must override
         if (!san.length) return null;
@@ -703,6 +735,7 @@ var Game = /** @class */function () {
         if (this.getMaxPos() < 1) return false;
         this.fens.pop();
         this.sans.pop();
+        this.tags.Result = Game.results.unterminated;
         return true;
     };
     Game.prototype.validate_fen = function (fen) {
@@ -722,6 +755,7 @@ var Game = /** @class */function () {
     Game.indiareyFen = 'r1bq1rk1/pppnn1bp/3p4/3Pp1p1/P1P1Pp2/2N2P2/1P2BBPP/R2QNRK1 b - a3 0 13';
     Game.yugoslavFen = 'r1bq1rk1/pp2ppbp/2np1np1/8/3NP3/2N1BP2/PPPQ2PP/R3KB1R w KQ - 3 9';
     Game.berlinFen = 'r1bk1b1r/ppp2ppp/2p5/4Pn2/8/5N2/PPP2PPP/RNB2RK1 w - - 0 9';
+    Game.sanRegExp = /(?:(^0-0-0|^O-O-O)|(^0-0|^O-O)|(?:^([a-h])(?:([1-8])|(?:x([a-h][1-8])))(?:=?([NBRQ]))?)|(?:^([NBRQK])([a-h])?([1-8])?(x)?([a-h][1-8])))(?:(\+)|(#)|(\+\+))?$/;
     return Game;
 }();
 exports.Game = Game;

@@ -34,6 +34,7 @@
     figureTo: string
     promotion: string
     capture: boolean
+    infoOrigin?: string
     check?: boolean
     checkmate?: boolean
     stalemate?: boolean
@@ -73,7 +74,14 @@
     validate_fen(fen: string): boolean    
   }
 
-  class Game implements IGame {
+  export class Game implements IGame {
+    static outOfBounds(...args: number[]): boolean {
+      for (let n: number = 0; n < args.length; n++) {
+        if (args[n] < 0 || args[n] > 63) return true
+      }
+      return false
+    }
+
     static capitalize(word: string): string {
       return `${word[0].toUpperCase()}${word.split('').slice(1).join('').toLowerCase()}`
     }
@@ -91,6 +99,28 @@
     static col(sq: number): number {
       return sq % 8
     }
+
+    static col2string(r: number): string {
+      return r < 8 && r >= 0 ? String.fromCharCode(r + 97) : ''
+    }
+
+    static string2col(c: string): number {
+      return !!c.match(/^[a-h]$/) ? c.charCodeAt(0) - 97 : -1
+    }
+
+    static row2string(r: number): string {
+      return r < 8 && r >= 0 ? (r + 1).toString(10) : ''
+    }
+
+    static string2row(c: string): number {
+      return !!c.match(/^[1-8]$/) ? c.charCodeAt(0) - 49 : -1
+    }
+
+    static rowcol2sq(row: number, col: number): number {
+      if (row < 0 || row > 7 || col < 0 || col > 7) return -1
+      return row * 8 + col
+    }
+
     static isEven(sq: number): boolean {
       return sq % 2 === 0
     }
@@ -186,6 +216,8 @@
     static yugoslavFen: string = 'r1bq1rk1/pp2ppbp/2np1np1/8/3NP3/2N1BP2/PPPQ2PP/R3KB1R w KQ - 3 9'
     static berlinFen: string = 'r1bk1b1r/ppp2ppp/2p5/4Pn2/8/5N2/PPP2PPP/RNB2RK1 w - - 0 9'
 
+    static sanRegExp = /(?:(^0-0-0|^O-O-O)|(^0-0|^O-O)|(?:^([a-h])(?:([1-8])|(?:x([a-h][1-8])))(?:=?([NBRQ]))?)|(?:^([NBRQK])([a-h])?([1-8])?(x)?([a-h][1-8])))(?:(\+)|(#)|(\+\+))?$/
+  
     fens: string[] = []
     sans: IMoveInfo[] = []
     tags: ISevenTags = <ISevenTags>{
@@ -203,8 +235,12 @@
     }
   
     reset(fen: string = Game.defaultFen) {
+      if (!this.validate_fen(fen)) {
+        throw new Error('Invalid FEN')
+      }
       this.fens = [fen]
       this.sans = [<IMoveInfo>{}]
+      this.tags.Result = Game.results.unterminated
     }
   
     getMaxPos() {return this.fens.length - 1}
@@ -276,25 +312,27 @@
     moveInfo2san(info: IMoveInfo): string {
         if (this.isShortCastling(info.from, info.to)) return 'O-O'
         if (this.isLongCastling(info.from, info.to)) return 'O-O-O'
+        //console.log(`In moveInfo2san, figureFrom is: ${info.figureFrom}`)
         let figure: string = !info.figureFrom.match(/[Pp]/)
           ? info.figureFrom.toUpperCase()
           : info.capture
           ? Game.sq2san(info.from)[0]
           : ''
 
+        let infoOrigin: string = info.infoOrigin ? info.infoOrigin : ''
         let capture: string = info.capture ? 'x' : '' 
         let dest: string = Game.sq2san(info.to)
         let promotion: string = info.promotion ? `=${info.promotion.toUpperCase()}` : ''
         let checkInfo: string = info.checkmate
-          ? '++'
+          ? '#'
           : info.check
           ? '+'
           : '' 
 
-        return `${figure}${capture}${dest}${promotion}${checkInfo}`
+        return `${figure}${infoOrigin}${capture}${dest}${promotion}${checkInfo}`
     }
 
-    san2MoveInfo(san: string, n: number = this.getMaxPos()): IMoveInfo {
+    san2MoveInfo(san: string, fen: string = this.fen()): IMoveInfo {
       //Must override
       if (!san.length) return <IMoveInfo>null
       return <IMoveInfo>null
@@ -474,7 +512,7 @@
     
             if (typeof to === 'string') {
               to = Game.san2sq(to)
-          }  
+            }  
         }
 
         let fObj: IFenObj = Game.fen2obj(this.fens[this.getMaxPos()])
@@ -620,6 +658,7 @@
       if (this.getMaxPos() < 1) return false
       this.fens.pop()
       this.sans.pop()
+      this.tags.Result = Game.results.unterminated
       return true
     }
 
@@ -631,4 +670,4 @@
 
   }
   
-export { Game }
+ 

@@ -1,18 +1,12 @@
 
-import { Game, IMoveInfo as IMoveInfoBase, IFenObj } from './game'
-
-export interface IMoveInfo extends IMoveInfoBase {
-    isCheck: boolean
-    isCheckMate: boolean
-    isStaleMate: boolean
-}
+import { Game, IMoveInfo, IFenObj } from './game'
 
 export interface IFenMoveInfo {
     moveInfo: IMoveInfo
     fen: string
 }
 
-class Chess extends Game {
+export class Chess extends Game {
 
     static difCol(sq1: number, sq2: number): number {
         return Math.abs(Game.col(sq1) - Game.col(sq2))
@@ -212,16 +206,133 @@ class Chess extends Game {
         return Chess.attacksOnSquare(attackers, fen, kingSq).length
     }
 
-    san2MoveInfo(san: string): IMoveInfo {
-        //Must override
+    san2MoveInfo(san: string, fen: string = this.fen()): IMoveInfo {
+        // overriden
+        //const sanRegExp = /(?:(^0-0-0|^O-O-O)|(^0-0|^O-O)|(?:^([a-h])(?:([1-8])|(?:x([a-h][1-8])))(?:=?([NBRQ]))?)|(?:^([NBRQK])([a-h])?([1-8])?(x)?([a-h][1-8])))(?:(\+)|(#)|(\+\+))?$/
+
         if (!san.length) return <IMoveInfo>null
-        return <IMoveInfo>null
-      }
+        const match = san.match(Game.sanRegExp)
+        if (!match) return  <IMoveInfo>null
+        const [_, longC, shortC, 
+               pawnCol, pawnDestRow, pawnCaptureDest, promotion,
+               figure, origCol, origRow, captureToken, figureDest, 
+               check, ckeckMate, altCheckMate] = match
+        const fen_obj = Game.fen2obj(fen)       
+        let retInfo = <IMoveInfo>{}
+        retInfo.turn = fen_obj.turn
+        retInfo.fullMoveNumber = fen_obj.fullMoveNumber
+        
+
+        if (longC) {
+            retInfo.figureFrom = retInfo.turn === 'b' ? 'k' : 'K'
+            retInfo.figureTo = '0'
+            retInfo.from = retInfo.turn === 'b' ? 60 : 4
+            retInfo.to = retInfo.turn === 'b' ? 58 : 2
+            retInfo.san = 'O-O-O'
+            retInfo.castling = true
+            return retInfo
+        } 
+        if (shortC) {
+            retInfo.figureFrom = retInfo.turn === 'b' ? 'k' : 'K'
+            retInfo.figureTo = '0'
+            retInfo.from = retInfo.turn === 'b' ? 60 : 4
+            retInfo.to = retInfo.turn === 'b' ? 62 : 6
+            retInfo.san = 'O-O'
+            retInfo.castling = true
+            return retInfo
+        }
+
+        if (pawnCol) {
+         retInfo.figureFrom = retInfo.turn === 'b' ? 'p' : 'P'
+         let origCol: number = Game.string2col(pawnCol)
+         let origRow: number
+         let destCol: number
+         let destRow: number  
+         if (pawnDestRow) {
+            retInfo.figureTo = '0'
+            destRow = Game.string2row(pawnDestRow)
+            destCol = origCol
+            origRow = retInfo.turn === 'b' ? destRow + 1 : destRow - 1
+            retInfo.from = Game.rowcol2sq(origRow, origCol)
+            if (!fen_obj.pos[retInfo.from].match(/[Pp]/)) {
+                retInfo.from += retInfo.turn === 'b' ? 8 : -8
+            }
+            if (!fen_obj.pos[retInfo.from].match(/[Pp]/)) {
+                return <IMoveInfo>null
+            }
+            retInfo.to = Game.rowcol2sq(destRow, destCol)
+         } else if (pawnCaptureDest) {
+            retInfo.capture = true
+            retInfo.to = Game.san2sq(pawnCaptureDest)
+            retInfo.figureTo = fen_obj.pos[retInfo.to]
+            origRow = Game.row(retInfo.to) + ((retInfo.turn === 'w') ? -1 : 1)
+            retInfo.from = Game.rowcol2sq(origRow, origCol) 
+            //console.log(origRow)
+            //console.log(retInfo)
+         }
+         if (promotion) {
+             retInfo.promotion = retInfo.turn === 'b' 
+               ? promotion.toLowerCase()
+               : promotion.toUpperCase()
+         }
+         return retInfo
+        } else if (figure) {
+          let figurine: string = retInfo.turn === 'w' ? figure.toUpperCase() : figure.toLowerCase()
+          retInfo.figureFrom = figurine
+          retInfo.from = -1
+          retInfo.to = Game.san2sq(figureDest)
+          retInfo.figureTo = fen_obj.pos[retInfo.to]
+          retInfo.capture = retInfo.figureTo !== '0'
+          const candidates: IMoveInfo[] = this.moves({verbose: true})
+          .filter((mi: IMoveInfo) => {
+            return mi.figureFrom === figurine && mi.to === retInfo.to 
+          })
+          switch (candidates.length) {
+              case 0:
+                return <IMoveInfo>null
+              case 1:
+                retInfo.from = candidates[0].from
+                break
+              default:
+                if (origCol && origRow) {
+                    let from: number = Game.san2sq(`${origCol}${origRow}`)
+                    for (let n: number = 0; n < candidates.length; n++) {
+                        if (candidates[n].from === from) {
+                            retInfo.from = from
+                            break
+                        }
+                    }
+                } else if (origCol) {
+                    let col = Game.string2col(origCol)
+                    for (let n: number = 0; n < candidates.length; n++) {
+                        if (Game.col(candidates[n].from) === col) {
+                            retInfo.from = candidates[n].from
+                            break
+                        }
+                    }
+                } else if (origRow) {
+                    let row = Game.string2row(origRow)
+                    for (let n: number = 0; n < candidates.length; n++) {
+                        if (Game.row(candidates[n].from) === row) {
+                            retInfo.from = candidates[n].from
+                            break
+                        }
+                    }
+                } else {
+                    return <IMoveInfo>null
+                }
+          }
+          return retInfo.from !== -1 ? retInfo : <IMoveInfo>null  
+        } else {
+            return <IMoveInfo>null
+        }
+
+    }
   
     canMove(moveInfo: IMoveInfo, n: number = this.getMaxPos()): boolean {
         //Overriden version
 
-        const parentResult = super.canMove(<IMoveInfoBase>moveInfo, n)
+        const parentResult = super.canMove(moveInfo, n)
         if (!parentResult) return false
         //super.canMove() tests: 
         // 1) that the original figure is a valid one
@@ -274,35 +385,19 @@ class Chess extends Game {
         return true
     }
 
-    tryMove(...args: any[]): IFenMoveInfo {
+    tryMove(from: any, to: any, promotion: string = <string>null): IFenMoveInfo {
 
         let moveInfo: IMoveInfo
-        let from: any
-        let to: any
-        let promotion: string
-
-        if (args.length === 0) {
-          return <IFenMoveInfo>null
-        } else if (args.length === 1) {
-          if (typeof args[0] === 'string') {
-            moveInfo = this.san2MoveInfo(args[0])
-            if (!moveInfo) return <IFenMoveInfo>null 
-            from = moveInfo.from
-            to = moveInfo.to
-            promotion = moveInfo.promotion
-          } else {
-            return <IFenMoveInfo>null
-          }
-        } else {
-            [from, to, promotion] = args
-            if (typeof from === 'string') {
-              from = Game.san2sq(from)
-            }  
+        
+        if (typeof from === 'string') {
+          from = Game.san2sq(from)
+        }  
     
-            if (typeof to === 'string') {
-              to = Game.san2sq(to)
-          }  
-        }
+        if (typeof to === 'string') {
+          to = Game.san2sq(to)
+        }  
+
+        if (Game.outOfBounds(from, to)) return <IFenMoveInfo>null
 
         let fObj: IFenObj = Game.fen2obj(this.fens[this.getMaxPos()])
         let pos: string[] = fObj.pos.split('')
@@ -321,6 +416,7 @@ class Chess extends Game {
         moveInfo.promotion = promotion
         moveInfo.capture = figInTo !== '0' || (this.isEnPassant(from, to) 
           && to === Game.san2sq(fObj.enPassant))
+        //console.log(`moveInfo.figureFrom = ${moveInfo.figureFrom}`)  
         moveInfo.san = this.moveInfo2san(moveInfo)
         moveInfo.fullMoveNumber = fObj.fullMoveNumber
         moveInfo.castling = this.isShortCastling(from, to) || this.isLongCastling(from, to)
@@ -349,12 +445,12 @@ class Chess extends Game {
         }
 
         if (this.isEnPassant(from, to)) {
-            //console.log("En passant move from " + from + " to " + to)
+            ////console.log("En passant move from " + from + " to " + to)
             if (to !== Game.san2sq(fObj.enPassant)) {
-                //console.log(`Destination is ${to} and en-passant is ${Game.san2sq(fObj.enPassant)}`)
+                ////console.log(`Destination is ${to} and en-passant is ${Game.san2sq(fObj.enPassant)}`)
             } else {
                 let sunk: number = Game.san2sq(fObj.enPassant) + 8 * (figFrom === 'P' ? -1 : 1)
-                //console.log("En passant sunk pawn at " + sunk) 
+                ////console.log("En passant sunk pawn at " + sunk) 
                 pos[sunk] = '0'
                 moveInfo.enPassant = true
             }
@@ -443,11 +539,74 @@ class Chess extends Game {
     return false
     }
 
+    getInfoOrigin(info: IMoveInfo, fen: string = this.fen()): string {
+        if (!!info.figureFrom.match(/[Pp]/)) return ''
+        const pos: string[] = Game.fen2obj(fen).pos.split('')
+        const army: number[] = pos.map((_, i) => i).filter((n) => n != info.from && pos[n] === info.figureFrom)
+        if (!army.length) return ''
+        const candidates: number[] = army.filter(n => Chess.canReach(n, info.to, fen))
+        if (!candidates.length) return ''
+        const alternatives: number[] = candidates.filter(n => {
+            const tuple: IFenMoveInfo = this.tryMove(n, info.to, info.promotion)
+            return !!tuple && this.validate_fen(tuple.fen)
+        })
+        //console.log(`alternatives[${info.figureFrom}]: ${alternatives}`)
+        switch (alternatives.length) {
+            case 0:
+              return ''
+            case 1:
+              if (Chess.isSameCol(info.from, alternatives[0])) {
+                  return Game.row2string(Game.row(info.from))
+              } else {
+                  return Game.col2string(Game.col(info.from))
+              }
+            default:
+              return Game.sq2san(info.from)
+        }
+    }
+
     move(...args: any[]): boolean {
-        const tuple: IFenMoveInfo = this.tryMove(...args)
+
+        let from: any, to: any, promotion: string
+
+        switch (args.length) {
+          case 0:
+            return false
+          case 1: 
+            let info: IMoveInfo = this.san2MoveInfo(args[0], this.fen())
+            if (!info) return false
+            from = info.from
+            to = info.to
+            promotion = info.promotion
+            break
+          default:
+            from = args[0]
+            to = args[1]
+            promotion = args[2]                     
+        }
+        if (typeof from === 'string') from = Game.san2sq(from)
+        if (typeof to === 'string') to = Game.san2sq(to)
+        if (Game.outOfBounds(from, to)) return false
+
+        //console.log(`from: ${from}, to: ${to}, promotion: ${promotion}`)
+        const tuple: IFenMoveInfo = this.tryMove(from, to, promotion)
         if (tuple === null) return false
         if (!this.validate_fen(tuple.fen)) return false
+ 
+        let infoOrigin: string = this.getInfoOrigin(tuple.moveInfo)
+        tuple.moveInfo = {...tuple.moveInfo, infoOrigin: infoOrigin}
+ 
         this.fens = [...this.fens, tuple.fen]
+        if (this.in_checkmate()) {
+            tuple.moveInfo = {...tuple.moveInfo, checkmate: true}
+            this.tags.Result = tuple.moveInfo.turn === 'w' ? Game.results.white : Game.results.black
+        } else if (this.in_check()) {
+            tuple.moveInfo = {...tuple.moveInfo, check: true}
+        } else if (this.in_stalemate()) {
+            tuple.moveInfo = {...tuple.moveInfo, stalemate: true}
+            this.tags.Result = Game.results.draw
+        }
+        tuple.moveInfo = {...tuple.moveInfo, san: this.moveInfo2san(tuple.moveInfo)}
         this.sans = [...this.sans, tuple.moveInfo]
         return true
     }
@@ -500,8 +659,44 @@ class Chess extends Game {
     //Check length of the string
     if (!fen.length) return false
     
+    //Check various anomalies
+    const fen_obj: IFenObj = Game.fen2obj(fen)
+    const pos: string[] = fen_obj.pos.split('')
+    let wKings: number = 0
+    let bKings: number = 0
+    let wPawns: number = 0
+    let bPawns: number = 0
+    let illegalFigs: number = 0
+
+    if (pos.length !== 64) return false
+    if (!fen_obj.turn.match(/[wb]/)) return false
+    if (!fen_obj.castling.match(/([KQkq]+)|(-)/)) return false
+    if (!fen_obj.enPassant.match(/([a-h](3|6))|(-)/)) return false
+
+    for (let n = 0; n < 64; n++) {
+        switch (pos[n]) {
+            case 'K':
+            wKings++
+            break
+            case 'k':
+            bKings++
+            break
+            case 'P':
+            wPawns++
+            break
+            case 'p':
+            bPawns++
+            break
+            default:
+            if (!"NBRQnbrq0".includes(pos[n])) illegalFigs++
+        }
+    }
+
+    if (wPawns > 8 || bPawns > 8 || wKings !== 1 || bKings !== 1 || illegalFigs > 0) return false
+    // //console.log(`wPawns: ${wPawns} - bPawns: ${bPawns} - wKings: ${wKings} - bKings: ${bKings}`)
+
     //Check is not illegal according to checks
-    const turn: string = Game.fen2obj(fen).turn
+    const turn: string = fen_obj.turn
     const wChecks: number = Chess.checks('w', fen)
     const bChecks: number = Chess.checks('b', fen)
     if ((turn === 'w' && bChecks > 0) || (turn === 'b' && wChecks > 0)) return false
@@ -510,5 +705,3 @@ class Chess extends Game {
     }    
       
 }
-
-export { Chess }
