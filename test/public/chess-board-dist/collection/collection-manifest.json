@@ -1,0 +1,359 @@
+{
+  "components": [
+    {
+      "tag": "chess-board",
+      "dependencies": [
+        "context-menu",
+        "custom-p"
+      ],
+      "componentClass": "ChessBoard",
+      "componentPath": "components/chess-board/chess-board.js",
+      "styles": {
+        "$": {
+          "stylePaths": [
+            "components/chess-board/chess-board.css"
+          ]
+        }
+      },
+      "props": [
+        {
+          "name": "autoPromotion",
+          "type": "String",
+          "mutable": true,
+          "attr": "auto-promotion"
+        },
+        {
+          "name": "highLightBg",
+          "type": "String",
+          "mutable": true,
+          "attr": "high-light-bg"
+        },
+        {
+          "name": "humanSide",
+          "type": "String",
+          "mutable": true,
+          "attr": "human-side"
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "attr": "id"
+        },
+        {
+          "name": "initialDarkBgColor",
+          "type": "String",
+          "attr": "initial-dark-bg-color"
+        },
+        {
+          "name": "initialFen",
+          "type": "String",
+          "attr": "initial-fen"
+        },
+        {
+          "name": "initialFlipped",
+          "type": "Boolean",
+          "attr": "initial-flipped"
+        },
+        {
+          "name": "initialLightBgColor",
+          "type": "String",
+          "attr": "initial-light-bg-color"
+        },
+        {
+          "name": "initialMode",
+          "type": "String",
+          "attr": "initial-mode"
+        },
+        {
+          "name": "set",
+          "type": "String",
+          "mutable": true,
+          "attr": "set",
+          "watch": [
+            "validateSet"
+          ]
+        },
+        {
+          "name": "sets",
+          "attr": "sets"
+        },
+        {
+          "name": "trashbin",
+          "type": "String",
+          "attr": "trashbin"
+        },
+        {
+          "name": "useFigurines",
+          "type": "Boolean",
+          "mutable": true,
+          "attr": "use-figurines"
+        },
+        {
+          "name": "version",
+          "type": "String",
+          "attr": "version"
+        }
+      ],
+      "states": [
+        {
+          "name": "boardHeight"
+        },
+        {
+          "name": "boardMode"
+        },
+        {
+          "name": "castlingPermissions"
+        },
+        {
+          "name": "current"
+        },
+        {
+          "name": "darkBgColor"
+        },
+        {
+          "name": "figureFrom"
+        },
+        {
+          "name": "flipped"
+        },
+        {
+          "name": "isDragging"
+        },
+        {
+          "name": "isMounted"
+        },
+        {
+          "name": "isPromoting"
+        },
+        {
+          "name": "lightBgColor"
+        },
+        {
+          "name": "menuDisplay"
+        },
+        {
+          "name": "menuX"
+        },
+        {
+          "name": "menuY"
+        },
+        {
+          "name": "setupObj"
+        },
+        {
+          "name": "sqFrom"
+        },
+        {
+          "name": "sqTo"
+        }
+      ],
+      "listeners": [
+        {
+          "event": "closeMenu",
+          "method": "onCloseMenu",
+          "passive": false,
+          "capture": false
+        },
+        {
+          "event": "document:keydown",
+          "method": "keybdHandler",
+          "passive": false,
+          "capture": false
+        },
+        {
+          "event": "moveEvent",
+          "method": "handleMoveEvent",
+          "passive": false,
+          "capture": false
+        },
+        {
+          "event": "window:orientationchange",
+          "method": "handleReorientation",
+          "passive": false,
+          "capture": false
+        },
+        {
+          "event": "window:resize",
+          "method": "handleResize",
+          "capture": false
+        }
+      ],
+      "methods": [
+        {
+          "name": "analyze"
+        },
+        {
+          "name": "canEndHere"
+        },
+        {
+          "name": "canStartHere"
+        },
+        {
+          "name": "default"
+        },
+        {
+          "name": "empty"
+        },
+        {
+          "name": "flip"
+        },
+        {
+          "name": "getBoardHeight"
+        },
+        {
+          "name": "getCastling"
+        },
+        {
+          "name": "getCurrent"
+        },
+        {
+          "name": "getEngine"
+        },
+        {
+          "name": "getEnPassant"
+        },
+        {
+          "name": "getFenPos"
+        },
+        {
+          "name": "getFullMoveNumber"
+        },
+        {
+          "name": "getGame"
+        },
+        {
+          "name": "getHalfMoveClock"
+        },
+        {
+          "name": "getInitialFen"
+        },
+        {
+          "name": "getMaxPos"
+        },
+        {
+          "name": "getMode"
+        },
+        {
+          "name": "getPgnMoves"
+        },
+        {
+          "name": "getPos"
+        },
+        {
+          "name": "getTurn"
+        },
+        {
+          "name": "goto"
+        },
+        {
+          "name": "isFlipped"
+        },
+        {
+          "name": "play"
+        },
+        {
+          "name": "rerender"
+        },
+        {
+          "name": "resetGame"
+        },
+        {
+          "name": "setBg"
+        },
+        {
+          "name": "setEngine"
+        },
+        {
+          "name": "setSchema"
+        },
+        {
+          "name": "setSquare"
+        },
+        {
+          "name": "setup"
+        },
+        {
+          "name": "tryRemoteMove"
+        },
+        {
+          "name": "undo"
+        },
+        {
+          "name": "view"
+        }
+      ],
+      "events": [
+        {
+          "event": "flipEvent"
+        },
+        {
+          "event": "moveEvent"
+        }
+      ],
+      "shadow": true
+    },
+    {
+      "tag": "context-menu",
+      "dependencies": [],
+      "componentClass": "ContextMenu",
+      "componentPath": "components/context-menu/context-menu.js",
+      "styles": {},
+      "props": [
+        {
+          "name": "footer",
+          "type": "String",
+          "attr": "footer"
+        },
+        {
+          "name": "header",
+          "type": "String",
+          "attr": "header"
+        },
+        {
+          "name": "items",
+          "type": "Number",
+          "attr": "items"
+        },
+        {
+          "name": "menuDisplay",
+          "type": "String",
+          "attr": "menu-display"
+        },
+        {
+          "name": "ovlBg",
+          "type": "String",
+          "attr": "ovl-bg"
+        },
+        {
+          "name": "x",
+          "type": "Number",
+          "attr": "x"
+        },
+        {
+          "name": "y",
+          "type": "Number",
+          "attr": "y"
+        }
+      ],
+      "events": [
+        {
+          "event": "closeMenu"
+        }
+      ]
+    },
+    {
+      "tag": "custom-p",
+      "dependencies": [],
+      "componentClass": "CustomParagraph",
+      "componentPath": "components/custom-p/custom-p.js",
+      "styles": {}
+    }
+  ],
+  "collections": [],
+  "compiler": {
+    "name": "@stencil/core",
+    "version": "0.11.4",
+    "typescriptVersion": "2.9.2"
+  },
+  "bundles": []
+}

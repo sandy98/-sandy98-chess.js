@@ -124,6 +124,7 @@ var Game = /** @class */function () {
         if (fen === void 0) {
             fen = Game.defaultFen;
         }
+        ////////////////////////////////////////////////////////////
         this.fens = [];
         this.sans = [];
         this.tags = {
@@ -160,9 +161,11 @@ var Game = /** @class */function () {
         return y + "." + m + "." + d;
     };
     Game.row = function (sq) {
+        if (typeof sq === 'string') sq = Game.san2sq(sq);
         return Math.floor(sq / 8);
     };
     Game.col = function (sq) {
+        if (typeof sq === 'string') sq = Game.san2sq(sq);
         return sq % 8;
     };
     Game.col2string = function (r) {
@@ -182,12 +185,15 @@ var Game = /** @class */function () {
         return row * 8 + col;
     };
     Game.isEven = function (sq) {
+        if (typeof sq === 'string') sq = Game.san2sq(sq);
         return sq % 2 === 0;
     };
     Game.isOdd = function (sq) {
+        if (typeof sq === 'string') sq = Game.san2sq(sq);
         return !Game.isEven(sq);
     };
     Game.isLight = function (sq) {
+        if (typeof sq === 'string') sq = Game.san2sq(sq);
         var orec = Game.isOdd(Game.row(sq)) && Game.isEven(Game.col(sq));
         var eroc = Game.isEven(Game.row(sq)) && Game.isOdd(Game.col(sq));
         return orec || eroc;
@@ -195,7 +201,29 @@ var Game = /** @class */function () {
     Game.isDark = function (sq) {
         return !Game.isLight(sq);
     };
+    Game.xor56 = function (pos) {
+        var splitted = pos.split('');
+        return splitted.map(function (_, i) {
+            return splitted[i ^ 56];
+        }).join('');
+    };
     Game.compressFenPos = function (pos) {
+        if (pos === void 0) {
+            pos = Game.fen2obj().pos;
+        }
+        return Game.xor56(pos).match(/\w{8}/g).join('/').replace(/0+/g, function (z) {
+            return z.length.toString();
+        });
+    };
+    Game.expandFenPos = function (fenPos) {
+        if (fenPos === void 0) {
+            fenPos = Game.fen2obj().fenPos;
+        }
+        return Game.xor56(fenPos.split('/').join('').replace(/\d/g, function (d) {
+            return '0'.repeat(parseInt(d));
+        }));
+    };
+    Game.deprecatedCompressFenPos = function (pos) {
         if (pos === void 0) {
             pos = Game.fen2obj().pos;
         }
@@ -207,7 +235,7 @@ var Game = /** @class */function () {
             return zeros.length.toString();
         });
     };
-    Game.expandFenPos = function (fenPos) {
+    Game.deprecatedExpandFenPos = function (fenPos) {
         if (fenPos === void 0) {
             fenPos = Game.fen2obj().fenPos;
         }
@@ -273,6 +301,31 @@ var Game = /** @class */function () {
             fen_obj1 = _a[0],
             fen_obj2 = _a[1];
         return fen_obj1.fenPos === fen_obj2.fenPos && fen_obj1.turn === fen_obj2.turn && fen_obj1.castling === fen_obj2.castling && fen_obj1.enPassant === fen_obj2.enPassant;
+    };
+    Game.boardArray = function () {
+        var arr = new Array(64);
+        arr.fill(0);
+        return arr.map(function (_, i) {
+            return i;
+        });
+    };
+    Game.countFigures = function (figure, fen) {
+        var pos = Game.fen2obj(fen).pos.split('');
+        return pos.filter(function (f) {
+            return f === figure;
+        }).length;
+    };
+    Game.figuresArray = function (figure, fen) {
+        var pos = Game.fen2obj(fen).pos;
+        return Game.boardArray().filter(function (i) {
+            return pos[i] === figure;
+        });
+    };
+    Game.figuresColors = function (figure, fen) {
+        var figsArr = Game.figuresArray(figure, fen);
+        return figsArr.map(function (i) {
+            return Game.isLight(i) ? 'light' : 'dark';
+        });
     };
     Game.prototype.reset = function (fen) {
         if (fen === void 0) {
@@ -340,19 +393,11 @@ var Game = /** @class */function () {
         }
         return parseInt(this._getWhat(n, 'fullMoveNumber'));
     };
-    Game.prototype.isShortCastling = function (from, to, npos) {
-        if (npos === void 0) {
-            npos = this.getMaxPos();
-        }
-        var pos = this.getPos(npos);
-        return from === 4 && to === 6 && pos[4] === 'K' || from === 60 && to === 62 && pos[60] === 'k';
+    Game.prototype.isShortCastling = function (from, to, figure) {
+        return from === 4 && to === 6 && figure === 'K' || from === 60 && to === 62 && figure === 'k';
     };
-    Game.prototype.isLongCastling = function (from, to, npos) {
-        if (npos === void 0) {
-            npos = this.getMaxPos();
-        }
-        var pos = this.getPos(npos);
-        return from === 4 && to === 2 && pos[4] === 'K' || from === 60 && to === 58 && pos[60] === 'k';
+    Game.prototype.isLongCastling = function (from, to, figure) {
+        return from === 4 && to === 2 && figure === 'K' || from === 60 && to === 58 && figure === 'k';
     };
     Game.prototype.isEnPassant = function (from, to, npos) {
         if (npos === void 0) {
@@ -376,8 +421,8 @@ var Game = /** @class */function () {
         return pos[from] == 'P' && Game.row(to) === 7 || pos[from] == 'p' && Game.row(to) === 0;
     };
     Game.prototype.moveInfo2san = function (info) {
-        if (this.isShortCastling(info.from, info.to)) return 'O-O';
-        if (this.isLongCastling(info.from, info.to)) return 'O-O-O';
+        if (this.isShortCastling(info.from, info.to, info.figureFrom)) return 'O-O';
+        if (this.isLongCastling(info.from, info.to, info.figureFrom)) return 'O-O-O';
         //console.log(`In moveInfo2san, figureFrom is: ${info.figureFrom}`)
         var figure = !info.figureFrom.match(/[Pp]/) ? info.figureFrom.toUpperCase() : info.capture ? Game.sq2san(info.from)[0] : '';
         var infoOrigin = info.infoOrigin ? info.infoOrigin : '';
@@ -392,6 +437,7 @@ var Game = /** @class */function () {
             fen = this.fen();
         }
         //Must override
+        if (!fen.length) return null;
         if (!san.length) return null;
         return null;
     };
@@ -561,6 +607,12 @@ var Game = /** @class */function () {
         //Must override
         return false;
     };
+    Game.prototype.label = function () {
+        return this.tags.White + " - " + this.tags.Black + "\t " + this.tags.Result;
+    };
+    Game.prototype.toString = function () {
+        return this.label();
+    };
     Game.prototype.load = function (fen) {
         if (fen === void 0) {
             fen = Game.defaultFen;
@@ -619,7 +671,7 @@ var Game = /** @class */function () {
         moveInfo.capture = figInTo !== '0' || this.isEnPassant(from, to) && to === Game.san2sq(fObj.enPassant);
         moveInfo.san = this.moveInfo2san(moveInfo);
         moveInfo.fullMoveNumber = fObj.fullMoveNumber;
-        moveInfo.castling = this.isShortCastling(from, to) || this.isLongCastling(from, to);
+        moveInfo.castling = this.isShortCastling(from, to, moveInfo.figureFrom) || this.isLongCastling(from, to, moveInfo.figureFrom);
         var bCan = this.canMove(moveInfo);
         if (!bCan) return false;
         pos[from] = '0';
@@ -759,7 +811,7 @@ var Game = /** @class */function () {
     return Game;
 }();
 exports.Game = Game;
-},{}],"../../../../../../../../../usr/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{}],"../../node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 
@@ -788,7 +840,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = '' || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + '33979' + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + '39363' + '/');
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
 
@@ -929,5 +981,5 @@ function hmrAccept(bundle, id) {
     return hmrAccept(global.parcelRequire, id);
   });
 }
-},{}]},{},["../../../../../../../../../usr/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js","game.ts"], null)
+},{}]},{},["../../node_modules/parcel-bundler/src/builtins/hmr-runtime.js","game.ts"], null)
 //# sourceMappingURL=/game.map

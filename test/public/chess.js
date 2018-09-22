@@ -437,7 +437,6 @@ var Game = /** @class */function () {
             fen = this.fen();
         }
         //Must override
-        if (!fen.length) return null;
         if (!san.length) return null;
         return null;
     };

@@ -1,12 +1,27 @@
 {
-  "name": "chess-plus",
-  "version": "0.1.0",
+  "name": "@sandy98/chess.js",
+  "version": "0.9.0",
   "author": "Domingo E. Savoretti",
   "main": "dist/chess.js",
+  "files": [
+    "dist/"
+  ],
+  "keywords": [
+    "chess",
+    "chess-rules",
+    "move-validator",
+    "chess.js",
+    "pgn-reader"
+  ],
   "license": "MIT",
   "scripts": {
     "build": "scripts/build.sh",
+    "watch": "scripts/watch.sh",
     "prepublish": "scripts/build.sh",
     "clean": "scripts/clean.sh"
+  },
+  "devDependencies": {
+    "node-simple-router": "^0.10.1",
+    "parcel-bundler": "^1.9.7"
   }
 }

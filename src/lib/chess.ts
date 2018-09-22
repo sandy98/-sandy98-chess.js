@@ -6,6 +6,16 @@ export interface IFenMoveInfo {
     fen: string
 }
 
+export enum PgnState {
+	SCANNING = 0,
+	LABEL = 1,
+	VALUE = 2,
+	TOKEN = 3,
+	COMMENT = 4,
+	VARIANT = 5
+}
+
+
 export class Chess extends Game {
 
     static difCol(sq1: number, sq2: number): number {
@@ -206,6 +216,113 @@ export class Chess extends Game {
         return Chess.attacksOnSquare(attackers, fen, kingSq).length
     }
 
+    static sideCanWin(side: string, fen: string): boolean {
+        if (!"wb".includes(side) || side.length !== 1) return false
+        const pos: string[] = Game.fen2obj(fen).pos.split('')
+        let [p, n, b, r, q] = side === 'b' ? ['p', 'n', 'b', 'r', 'q'] : ['P', 'N', 'B', 'R', 'Q']
+        let [fp, fn, fb, fr, fq] = side === 'w' ? ['p', 'n', 'b', 'r', 'q'] : ['P', 'N', 'B', 'R', 'Q']
+        let [pc, nc, bc, rc, qc] = [
+          Game.countFigures(p, fen),
+          Game.countFigures(n, fen),
+          Game.countFigures(b, fen),
+          Game.countFigures(r, fen),
+          Game.countFigures(q, fen)
+        ]
+        let [fpc, fnc, fbc, frc, fqc] = [
+          Game.countFigures(fp, fen),
+          Game.countFigures(fn, fen),
+          Game.countFigures(fb, fen),
+          Game.countFigures(fr, fen),
+          Game.countFigures(fq, fen)
+        ]
+  
+        // console.log(pc, nc, bc, rc, qc, " - ", fpc, fnc, fbc, frc, fqc)
+  
+        if (pc || rc || qc) return true
+  
+        if (nc && bc) return true
+  
+        switch (nc) {
+          case 0:
+            if (!bc) return false
+            break
+          case 1:
+            if (fpc || fnc || fbc || frc) {
+              return true
+            } else {
+              return false
+            }
+          case 2:
+            if (fpc || fnc || fbc || frc || fqc) {
+              return true
+            } else {
+              return false
+            }
+          default:
+            return true
+        }
+  
+        switch (bc) {
+          case 0:
+            return false
+          case 1:
+            if (fpc || fnc) {
+              return true
+            } else if (fbc) {
+                let bcolors: string[] = Game.figuresColors(b, fen)
+                let fbcolors: string[] = Game.figuresColors(fb, fen)
+                for (let i: number = 0; i < fbcolors.length; i++) {
+                    if (bcolors[0] !== fbcolors[i]) return true
+                }
+                return false
+            } else {
+              return false
+            }
+          default:
+            let bcolors: string[] = Game.figuresColors(b, fen)
+            for (let i: number = 1; i < bcolors.length; i++) {
+                if (bcolors[0] !== bcolors[i]) return true
+            }
+            if (fpc || fnc) {
+                return true
+              } else if (fbc) {
+                  let fbcolors: string[] = Game.figuresColors(fb, fen)
+                  for (let i: number = 0; i < fbcolors.length; i++) {
+                      if (bcolors[0] !== fbcolors[i]) return true
+                  }
+                  return false
+              } else {
+                return false
+            }
+  
+        }
+  
+        return false
+      }  
+
+    static lex_pgnfile(pgnFileStr: string): string[] {
+        pgnFileStr = pgnFileStr.replace(/\r/g, '\n')
+        let pgnFragments: string[] = pgnFileStr.split(/\n{2,}/)
+        if (Game.isOdd(pgnFragments.length)) pgnFragments = pgnFragments.slice(0, pgnFragments.length - 1)
+        if (!pgnFragments.length) return [""]
+        let pgns: string[] = []
+        for (let n: number = 0; n < pgnFragments.length; n += 2) {
+            pgns = [...pgns, [pgnFragments[n], pgnFragments[n + 1]].join('\n\n')]
+        }
+        return pgns
+    }
+     
+    static parse_pgnfile(pgnFileStr: string): Chess[] {
+        const pgns: string[] = Chess.lex_pgnfile(pgnFileStr)
+        if (!pgns.length) return []
+        let games: Chess[] = []
+        for (let n: number = 0; n < pgns.length; n++) {
+            let game = new Chess()
+            if (game.load_pgn(pgns[n])) games = [...games, game]
+        }
+        return games
+    }
+
     san2MoveInfo(san: string, fen: string = this.fen()): IMoveInfo {
         // overriden
         //const sanRegExp = /(?:(^0-0-0|^O-O-O)|(^0-0|^O-O)|(?:^([a-h])(?:([1-8])|(?:x([a-h][1-8])))(?:=?([NBRQ]))?)|(?:^([NBRQK])([a-h])?([1-8])?(x)?([a-h][1-8])))(?:(\+)|(#)|(\+\+))?$/
@@ -278,26 +395,34 @@ export class Chess extends Game {
          return retInfo
         } else if (figure) {
           let figurine: string = retInfo.turn === 'w' ? figure.toUpperCase() : figure.toLowerCase()
+          //console.log(`Figurine: ${figurine}`)
           retInfo.figureFrom = figurine
           retInfo.from = -1
           retInfo.to = Game.san2sq(figureDest)
           retInfo.figureTo = fen_obj.pos[retInfo.to]
           retInfo.capture = retInfo.figureTo !== '0'
-          const candidates: IMoveInfo[] = this.moves({verbose: true})
-          .filter((mi: IMoveInfo) => {
-            return mi.figureFrom === figurine && mi.to === retInfo.to 
+        //   const candidates: IMoveInfo[] = this.moves({verbose: true})
+        //   .filter((mi: IMoveInfo) => {
+        //     return mi.figureFrom === figurine && mi.to === retInfo.to 
+        //   })
+          const candidates: number[] = Game.boardArray().filter(i => fen_obj.pos[i] === figurine)
+          .filter(i => Chess.canReach(i, retInfo.to, fen))
+          .filter(i => {
+              const info: IFenMoveInfo = this.tryMove(i, retInfo.to)
+              return info && this.validate_fen(info.fen) 
           })
+          //console.log(`Candidates: ${candidates}`)
           switch (candidates.length) {
               case 0:
                 return <IMoveInfo>null
               case 1:
-                retInfo.from = candidates[0].from
+                retInfo.from = candidates[0]
                 break
               default:
                 if (origCol && origRow) {
                     let from: number = Game.san2sq(`${origCol}${origRow}`)
                     for (let n: number = 0; n < candidates.length; n++) {
-                        if (candidates[n].from === from) {
+                        if (candidates[n] === from) {
                             retInfo.from = from
                             break
                         }
@@ -305,16 +430,16 @@ export class Chess extends Game {
                 } else if (origCol) {
                     let col = Game.string2col(origCol)
                     for (let n: number = 0; n < candidates.length; n++) {
-                        if (Game.col(candidates[n].from) === col) {
-                            retInfo.from = candidates[n].from
+                        if (Game.col(candidates[n]) === col) {
+                            retInfo.from = candidates[n]
                             break
                         }
                     }
                 } else if (origRow) {
                     let row = Game.string2row(origRow)
                     for (let n: number = 0; n < candidates.length; n++) {
-                        if (Game.row(candidates[n].from) === row) {
-                            retInfo.from = candidates[n].from
+                        if (Game.row(candidates[n]) === row) {
+                            retInfo.from = candidates[n]
                             break
                         }
                     }
@@ -419,7 +544,7 @@ export class Chess extends Game {
         //console.log(`moveInfo.figureFrom = ${moveInfo.figureFrom}`)  
         moveInfo.san = this.moveInfo2san(moveInfo)
         moveInfo.fullMoveNumber = fObj.fullMoveNumber
-        moveInfo.castling = this.isShortCastling(from, to) || this.isLongCastling(from, to)
+        moveInfo.castling = this.isShortCastling(from, to, moveInfo.figureFrom) || this.isLongCastling(from, to, moveInfo.figureFrom)
 
         let bCan = this.canMove(moveInfo)
 
@@ -430,18 +555,22 @@ export class Chess extends Game {
         if (figFrom === 'K' && from === 4 && to === 6) {
             pos[7] = '0'
             pos[5] = 'R'
+            moveInfo.san = 'O-O'
         }
         if (figFrom === 'K' && from === 4 && to === 2) {
             pos[0] = '0'
             pos[3] = 'R'
+            moveInfo.san = 'O-O-O'
         }
         if (figFrom === 'k' && from === 60 && to === 62) {
             pos[63] = '0'
             pos[61] = 'r'
+            moveInfo.san = 'O-O'
         }
         if (figFrom === 'k' && from === 60 && to === 58) {
             pos[56] = '0'
             pos[59] = 'R'
+            moveInfo.san = 'O-O-O'
         }
 
         if (this.isEnPassant(from, to)) {
@@ -498,8 +627,12 @@ export class Chess extends Game {
     }
 
     game_over(): boolean {
-    //Must override
-    return false
+    //Overriden
+    return this.in_checkmate() 
+        || this.in_stalemate()
+        || this.in_draw()
+        || this.in_threefold_repetition() 
+        || this.insufficient_material()
     }
 
 
@@ -509,35 +642,137 @@ export class Chess extends Game {
     }
 
     in_checkmate(index: number = this.getMaxPos()): boolean {
-    //Must override
+    //Overriden
     if (index < 0 || index > this.getMaxPos()) return false
     return this.in_check(index) && this.moves(null, index).length === 0
     }
 
     in_draw(index: number = this.getMaxPos()): boolean {
-    //Must override
-    if (index < 0 || index > this.getMaxPos()) return false
-    return false
+    //Overriden
+        return this.insufficient_material(index) || Game.fen2obj(this.fen(index)).halfMoveClock >= 100
     }
 
     in_stalemate(index: number = this.getMaxPos()): boolean {
-    //Must override
-    if (index < 0 || index > this.getMaxPos()) return false
-    return !this.in_check(index) && this.moves(null, index).length === 0
+    //Overriden
+      return !this.in_check(index) && this.moves(null, index).length === 0
     }
 
-    insufficient_material(_: number = this.getMaxPos()): boolean
+    insufficient_material(index: number = this.getMaxPos()): boolean
     {
-    //Must override
-    return false
+    //Overriden
+      return (!Chess.sideCanWin('w', this.fen(index)) && !Chess.sideCanWin('b', this.fen(index)))
     }
 
 
-    load_pgn(pgn: string): boolean {
-    if (!pgn.length) return false
-    //Must override
-    return false
+	load_pgn(pgn: string): boolean {
+            let current: string = ''
+            let token_str: string = ""
+            let label_str: string = ""
+            let value_str: string = ""
+            let index: number = 0
+            let state: PgnState = PgnState.SCANNING
+            let prev_state: PgnState = PgnState.SCANNING
+
+            let game: Chess = new Chess()
+            
+            let strip_nums = (text: string): string => text.replace(/\d+\.\s*(\.\.\.)?\s*/g, '')
+
+            let is_san = (text: string): boolean => !!text.match(Game.sanRegExp)
+
+            let is_result = (text: string): boolean => {
+                for (let n in Game.results) {
+                    if (text === Game.results[n]) return true
+                }
+                return false
+            }
+
+            do {
+                current = pgn[index++];
+        
+                switch (state) {
+                    case PgnState.SCANNING:
+                    if ('[' === current) {
+                        state = PgnState.LABEL
+                        continue	
+                    } else if ('{' === current) {
+                        prev_state = state
+                        state = PgnState.COMMENT
+                        continue
+                    } else if ('(' === current) {
+                        prev_state = state
+                        state = PgnState.VARIANT
+                        continue
+                    } else if (current.match(/[\s\]]/)) {
+                        continue
+                    } else {
+                        state = PgnState.TOKEN
+                        token_str = current
+                        continue
+                    }
+
+                    case 1: //PgnState.LABEL:
+                    if ('"' === current) {
+                        state = PgnState.VALUE
+                    } else {
+                        label_str += current
+                    }
+                    continue
+
+                    case 2: //PgnState.VALUE:
+                    if ('"' === current) {
+                        state = PgnState.SCANNING
+                        game.header(label_str.trim(), value_str)
+                        label_str = ""
+                        value_str = ""
+                    } else {
+                        value_str += current
+                    }
+                    continue 
+                    case 3: //PgnState.TOKEN:
+                        if ('{' == current) {
+                            prev_state = state
+                            state = PgnState.COMMENT
+                        } else if ('(' == current) {
+                            prev_state = state
+                            state = PgnState.VARIANT
+                        } else if (current.match(/[\s\[]/)) {
+                            if (is_result(token_str)) game.header("Result", token_str)
+                            if (is_result(token_str) || '[' === current) {
+                                this.fens = game.fens
+                                this.sans = game.sans
+                                this.tags = game.tags
+                                return true		
+                            }
+                            let stripped: string = strip_nums(token_str)
+                            if (is_san(stripped)) {
+                                let bmove = game.move(stripped)
+                                if (!bmove) return false
+                            }
+                            token_str = ""
+                        } else {
+                            token_str += current
+                        }
+                    continue
+                    case PgnState.COMMENT:
+                    if ('}' == current) {
+                        state = prev_state
+                    }
+                    continue
+                    case PgnState.VARIANT:
+                    if (')' == current) {
+                        state = prev_state
+                    }
+                    continue
+                    default:
+                    continue
+                } 
+            } while (index < pgn.length)
+            this.fens = game.fens
+            this.sans = game.sans
+            this.tags = game.tags
+            return true 		
     }
+
 
     getInfoOrigin(info: IMoveInfo, fen: string = this.fen()): string {
         if (!!info.figureFrom.match(/[Pp]/)) return ''
@@ -612,7 +847,7 @@ export class Chess extends Game {
     }
 
     moves(options: object = null, index: number = this.getMaxPos()): any[] {
-        //Must override
+        //Overriden
         let result: IMoveInfo[] = []
         const army: string = this.getTurn(index) === 'b' ? 'pnbrqk' : 'PNBRQK'
         const fen: string = this.fens[index]
@@ -705,3 +940,5 @@ export class Chess extends Game {
     }    
       
 }
+
+if (typeof window !== 'undefined') window['Chess'] = Chess
