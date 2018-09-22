@@ -1,10 +1,10 @@
-# chess.js
+# @sandy98/chess.js
 
-chess.js is a Javascript chess library that is used for chess move
+@sandy98/chess.js is a Javascript chess library that is used for chess move
 generation/validation, piece placement/movement, and check/checkmate/stalemate
 detection - basically everything but the AI.
 
-chess.js has been extensively tested in node.js and most modern browsers.
+It is inspired on [jhlywa](https://github.com/jhlywa)'s excelent chess.js, and follows its API to the detail wherever possible, so users with experience in it will find almost no difference in use. Motivation behind this development is to have a version which keeps an internal collection of positions, so user interfaces (like chessboard.js, or my own [@sandy98/chess-board](https://github.com/sandy98/chess-board) can show differents stages of a game without resorting to undos/redos of movements, which is expensive in terms of computation, and not elegant in terms of development. I had previously done a (now deprecated) fork of jhlywa's library which did exactly that, but eventually decided a complete rewrite to put modern tooling (typescript, parcel.js) to good use, and to have which I considered a clearer version in terms of both object orientation and functional techniques. The source code is quite self-explanatory.
 
 ## Installation
 
@@ -33,7 +33,7 @@ console.log(chess.pgn());
 Need a user interface?  Try my very own
 [@sandy99/chess-board](http://github.com/sandy98/chess-board) library.
 
-## API
+## API (Doc currently under rewriting to stress minor differences between this @sandy98/chess.js and original chess.js)
 
 ### Constructor: Chess([ fen ])
 The Chess() constructor takes an optional parameter which specifies the board configuration
@@ -282,24 +282,10 @@ chess.load('4r3/8/X12XPk/1p6/pP2p1R1/P1B5/2P2K2/3r4 w - - 1 45');
 // -> false, bad piece X
 ```
 
-### .load_pgn(pgn, [ options ])
+### .load_pgn(pgn)
 Load the moves of a game stored in
 [Portable Game Notation](http://en.wikipedia.org/wiki/Portable_Game_Notation).
-`pgn` should be a string. Options is an optional `object` which may contain
-a string `newline_char` and a boolean `sloppy`.
-
-The `newline_char` is a string representation of a valid RegExp fragment and is
-used to process the PGN. It defaults to `\r?\n`. Special characters
-should not be pre-escaped, but any literal special characters should be escaped
-as is normal for a RegExp.  Keep in mind that backslashes in JavaScript strings
-must themselves be escaped (see `sloppy_pgn` example below). Avoid using
-a `newline_char` that may occur elsewhere in a PGN, such as `.` or `x`, as this
-will result in unexpected behavior.
-
-The `sloppy` flag is a boolean that permits chess.js to parse moves in
-non-standard notations. See `.move` documentation for more information about
-non-SAN notations.
-
+`pgn` should be a string. 
 The method will return `true` if the PGN was parsed successfully, otherwise `false`.
 
 ```js
@@ -342,39 +328,6 @@ chess.ascii();
 //       +------------------------+
 //         a  b  c  d  e  f  g  h'
 
-
-// Parse non-standard move formats and unusual line separators
-var sloppy_pgn = ['[Event "Wijk aan Zee (Netherlands)"]',
-  '[Date "1971.01.26"]',
-  '[Result "1-0"]',
-  '[White "Tigran Vartanovich Petrosian"]',
-  '[Black "Hans Ree"]',
-  '[ECO "A29"]',
-  '',
-  '1. Pc2c4 Pe7e5', // non-standard
-  '2. Nc3 Nf6',
-  '3. Nf3 Nc6',
-  '4. g2g3 Bb4',    // non-standard
-  '5. Nd5 Nxd5',
-  '6. c4xd5 e5-e4', // non-standard
-  '7. dxc6 exf3',
-  '8. Qb3 1-0'
-].join('|');
-
-var options = {
-  newline_char: '\\|', // Literal '|' character escaped
-  sloppy: true
-};
-
-chess.load_pgn(sloppy_pgn);
-// -> false
-
-chess.load_pgn(sloppy_pgn, options);
-// -> true
-
-chess.fen();
-// -> 'r1bqk2r/pppp1ppp/2P5/8/1b6/1Q3pP1/PP1PPP1P/R1B1KB1R b KQkq - 1 8'
-```
 
 ### .move(move, [ options ])
 Attempts to make a move on the board, returning a move object if the move was
