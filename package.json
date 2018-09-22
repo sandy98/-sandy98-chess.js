@@ -1,6 +1,6 @@
 {
   "name": "@sandy98/chess.js",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "author": "Domingo E. Savoretti",
   "main": "dist/chess.js",
   "files": [
