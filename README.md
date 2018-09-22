@@ -11,14 +11,9 @@ chess.js has been extensively tested in node.js and most modern browsers.
 To install the stable version:
 
 ```sh
-npm install --save chess.js
+npm install --save @sandy98/chess.js
 ```
 
-chess.js is also available via [CDNJS](https://cdnjs.com/libraries/chess.js):
-
-```html
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.js"></script>
-```
 
 ## Example Code
 The code below plays a complete game of chess ... randomly.
@@ -35,27 +30,8 @@ while (!chess.game_over()) {
 console.log(chess.pgn());
 ```
 
-## Sites Using chess.js
-
-- [chess.com](http://www.chess.com/)
-- [The Internet Chess Club (ICC)](http://www.chessclub.com/)
-- [lichess](http://lichess.org/tv)
-- [Redbull - Battle for the Queen](http://battleforthequeen.redbull.com/)
-- [Asm.js Chess Battle](https://developer.microsoft.com/en-us/microsoft-edge/testdrive/demos/chess/)
-- [3D Hartwig Chess](http://creativejs.com/2012/12/3d-hartwig-chess/)
-- [Scene VR](http://client.scenevr.com/?connect=chess.scenevr.hosting/chess.xml)
-- [Multiplayer Chess](http://chessapp.com/)
-- [Reti Chess](http://retichess.nodejitsu.com/)
-- [Chess Fork](http://www.chessfork.com/)
-- [Lozza](http://op12no2.me/posts/1641)
-- [angular-chess](http://theborakompanioni.github.io/angular-chess)
-- [Chessable](https://www.chessable.com)
-- [SlimChess](https://slimchess.com/now)
-
-Need a user interface?  Try Chris Oakman's excellent
-[chessboard.js](http://chessboardjs.com) library.  See
-[chessboard.js - Random vs Random](http://chessboardjs.com/examples#5002) for
-an example integration of chess.js with chessboard.js.
+Need a user interface?  Try my very own
+[@sandy99/chess-board](http://github.com/sandy98/chess-board) library.
 
 ## API
 
