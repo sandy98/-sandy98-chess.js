@@ -893,6 +893,8 @@ export class Chess extends Game {
     validate_fen(fen: string): boolean {
     //Check length of the string
     if (!fen.length) return false
+
+    if (fen === Game.emptyFen) return true
     
     //Check various anomalies
     const fen_obj: IFenObj = Game.fen2obj(fen)
