@@ -1,5 +1,7 @@
 # @sandy98/chess.js
 
+## Warning: this project is deprecated since october 2019 in favor of the newer and more functional sandy98/chess-rules, so it's no longer mantained.
+
 @sandy98/chess.js is a Javascript chess library that is used for chess move
 generation/validation, piece placement/movement, and check/checkmate/stalemate
 detection - basically everything but the AI.
